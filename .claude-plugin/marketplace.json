@@ -1,0 +1,13 @@
+{
+  "name": "devteam",
+  "owner": {
+    "name": "Darren Gegantino"
+  },
+  "plugins": [
+    {
+      "name": "devteam",
+      "source": "./",
+      "description": "Take one task to a reviewed pull request with area-owned agents and a checkpoint at every step."
+    }
+  ]
+}
