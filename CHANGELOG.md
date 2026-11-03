@@ -6,6 +6,9 @@
   `/devteam:implement` reads it from the same app folder in the main checkout,
   and passes its absolute path to every agent as `repo file`. `/devteam:setup`
   writes it in the main checkout when started in a worktree.
+- The builder's memory is now per user, not per repo. Project memory was saved
+  inside the target repo, where it could land in the PR or vanish with the
+  worktree.
 
 ## 0.1.0 — 2026-11-03
 

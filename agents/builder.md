@@ -3,7 +3,7 @@ name: builder
 description: Builds one area's phase of a /devteam:implement run — the code and its tests, inside that area's Paths, following the area's Instructions file from the target repo. Dispatched by /devteam:implement for every phase whose area is not `docs`.
 tools: Read, Grep, Glob, Edit, Write, Bash
 model: opus
-memory: project
+memory: user
 ---
 
 # devteam Builder
