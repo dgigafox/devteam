@@ -8,7 +8,7 @@ memory.
 
 `<main checkout>/.claude/plans/<slug>.md`. The slug is the first that applies:
 
-- the ticket key in lower case: `proj-123`
+- the ticket key in lower case: `proj-123` (a parent's key, for a ticket set)
 - the PR number: `pr-482`
 - up to five words of the instruction, in kebab case:
   `change-apply-button-colour`
@@ -33,11 +33,17 @@ and write into any plan directory they find. A flat file matches none of them.
 # proj-123 — <ticket summary, or the instruction>
 
 **State:** planned **Pace:** per-phase **Base:** <sha> **Branch:** <branch>
-**Worktree:** <absolute path> **App:** <app root, relative; `.` in a single repo> **Repo file:** <absolute path of .agents/devteam.md> **Ticket:** PROJ-123 | none **PR:** none **Head:** none
+**Worktree:** <absolute path> **App:** <app root, relative; `.` in a single repo> **Repo file:** <absolute path of .agents/devteam.md> **Ticket:** PROJ-123 | none **PR:** none **Head:** none **Risk:** none | pending | <level>
 
 **Instruction:** <the user's words, verbatim, or none>
 
-## Phase 1 — <title> [api · devteam:builder] (pending)
+## Tickets
+
+| # | Ticket | Blocked by | Status |
+| --- | --- | --- | --- |
+| 1 | PROJ-124 | none | In Progress |
+
+## Phase 1 — <title> [api · devteam:builder · PROJ-124] (pending)
 
 Verify: <the phase's verify command>
 Acceptance: <one sentence>
@@ -57,11 +63,17 @@ Acceptance: <one sentence>
 
 ## QA
 
+## Verified
+
 ## Commits
 
 ## Watches
+
+## Risk
 ```
 
+- `## Tickets` and the ticket in a phase heading appear only for a ticket set.
+  `**Ticket:**` then reads `PROJ-123 (parent of PROJ-124, PROJ-125)`.
 - `D` lines are the user's answers to the planner's `decisions_needed`. `A`
   lines are the planner's `assumptions`, verbatim. An assumption the user
   overrules becomes a `D` line marked `(user)`.
@@ -69,9 +81,16 @@ Acceptance: <one sentence>
   `- [x] P1.1 Archive action — test first: archived orders hide; status field`
 - `## Findings` holds the reviewer's and docs audit's findings, and later OCR's,
   each with its outcome: fixed, declined with the reason, deferred, left alone.
+- `## Verified` holds one line per command that passed: directory, command,
+  tree id, who ran it, time (UTC). Plus one `gates <mode>` line per passing
+  gates run. A command already passed on the same tree id is skipped, not run
+  again (SKILL.md § Reusing a verified command).
 - `## Commits` holds each commit's sha and subject once made.
 - `## Watches` holds one line per watch report: kind, head sha, outcome, what
   the user chose.
+- `## Risk` holds one line per classification: head sha, level, matched rules,
+  the record's URL, and where the ticket went. `**Risk:**` is `none` when the
+  repo file has no `## Risk`, and `pending` after every push.
 - Nothing else. If it does not need to survive a `/clear`, it stays in the
   conversation.
 
@@ -95,7 +114,8 @@ Bump `**State:**` as the run moves:
 | `committed`     | Commits made, not pushed                             | Step 8                                                                 |
 | `pr-open`       | PR open, any ticket in review                        | Steps 9–11, against the PR's current head                              |
 | `fixing`        | A post-PR fix in progress, any ticket in progress    | The fix, then gates, commit and push                                   |
-| `done`          | CI green and OCR handled                             | Print the summary, do nothing else                                     |
+| `classifying`   | Watches clean, risk not yet recorded for this head   | Step 12, from its first step                                           |
+| `done`          | CI green, OCR handled, risk routed when graded       | Print the summary, do nothing else                                     |
 
 A resumed phase may be part-done. Tell the agent which boxes are ticked and that
 its work must be idempotent.

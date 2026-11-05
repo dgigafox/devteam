@@ -188,6 +188,19 @@ If the suite passed but some tests were skipped or excluded — a service was
 down, say — your `verify_result` is `degraded`, not `pass`. Say how many and
 why.
 
+**Record the tree id.** Right before each verify command, take the id of the
+worktree's files as they are now, and again right after:
+
+```bash
+cd <worktree> && tmp=$(mktemp) && cp "$(git rev-parse --git-path index)" "$tmp" && GIT_INDEX_FILE="$tmp" git add -A && GIT_INDEX_FILE="$tmp" git write-tree; rm -f "$tmp"
+```
+
+Report each command in `verified` with that id. If the two ids differ, the
+command changed files: report `tree: changed`. The orchestrator records each
+pass, so QA and the commit gates can skip a command that already passed on the
+same files. Only report commands you ran in full, as given; a single test file
+run during TDD doesn't go in.
+
 You get **one** self-fix attempt if your own tests fail. If they still fail,
 report `status: failed` with the output — do not keep grinding, and do not
 weaken the test to make it pass.
@@ -216,6 +229,13 @@ status: success | partial | blocked | failed
 verify: |
   the Fast verify command, exactly as you ran it
 verify_result: pass | fail | degraded | skipped
+verified:
+  - dir: api
+    command: <the Fast verify command, without the cd>
+    tree: 3467875302c4f8043ec6efa18c1d06581ce83e92
+    result: pass | fail | degraded
+  # `dir` relative to <app>, `.` for <app> itself. `tree: changed` when the
+  # command edited files. `none` if you ran no verify command.
 files_changed:
   - path: src/api/orders.ts
     action: modified

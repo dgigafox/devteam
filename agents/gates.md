@@ -22,6 +22,22 @@ You fix nothing.
 - the mode: `commit`, `push`, or `lockfiles`.
 - the base to diff against: the run's `Base` sha, or `origin/<base branch>`
   after the PR opens.
+- `already_passed`: commands that already passed on some tree id, as
+  `dir · command · tree`. Maybe `none`. See [Skipping a command](#skipping-a-command).
+
+## The tree id
+
+Take it first, every run. It is the id of the worktree's files as they are now,
+committed or not:
+
+```bash
+cd <worktree> && tmp=$(mktemp) && cp "$(git rev-parse --git-path index)" "$tmp" && GIT_INDEX_FILE="$tmp" git add -A && GIT_INDEX_FILE="$tmp" git write-tree; rm -f "$tmp"
+```
+
+It uses a throwaway index, so the real one is untouched. Return it as `tree`.
+Take it again after each command. If it differs, the command changed files:
+report that command's tree as `changed`, so its pass is never reused. In
+`lockfiles` mode, take it after regenerating.
 
 ## Where the gates come from
 
@@ -55,6 +71,16 @@ the section names. Run each command once.
 
 In `push` mode, also run every gate the section requires before a push for the
 changed paths. These are often wider than the commit gates.
+
+### Skipping a command
+
+A command in `already_passed` with the same directory and your tree id already
+passed on these exact files. Don't run it. List it with `result: skipped` and
+`cause: passed on tree <id>`. An entry with another tree id, or another
+directory, or a different command string, doesn't count: run the command.
+`git diff --check` is cheap; always run it.
+
+On a clean run in `push` mode, this leaves only the push-only gates.
 
 ## Run them
 
@@ -104,7 +130,7 @@ prose in `|` blocks, and the literal `none` rather than an omitted key.
 
 **My field values.** `status`: `success` (every gate ran) · `blocked` (could not
 run them) · `failed` (the environment broke mid-run). `result` per gate: `pass`
-· `fail` · `skipped`. `verify_result`: `pass` only when every gate passed.
+· `fail` · `skipped`. `verify_result`: `pass` only when every gate passed, here or (skipped) earlier on the same tree.
 
 ````markdown
 ```agent-result
@@ -113,6 +139,7 @@ agent: devteam:gates
 status: success | blocked | failed
 mode: commit | push | lockfiles
 head: 4f2a9c1
+tree: 9b1e07d3c2a8f4e6b5d1a0c9e8f7a6b5c4d3e2f1
 paths: 7 changed — src/api/** (5), docs/** (2)
 gates:
   - command: cd api && <lint command>
@@ -128,6 +155,17 @@ gates:
     log: /tmp/devteam-gates-proj-123-test.log
     cause: none
 lockfiles: none
+verified:
+  - dir: api
+    command: <lint command>
+    tree: 9b1e07d3c2a8f4e6b5d1a0c9e8f7a6b5c4d3e2f1
+    result: fail
+  - dir: api
+    command: <test command>
+    tree: 9b1e07d3c2a8f4e6b5d1a0c9e8f7a6b5c4d3e2f1
+    result: pass
+  # one item per gate in `gates`. `dir` relative to <app>, `.` for <app> itself;
+  # `command` without the `cd`. `tree: changed` when the command edited files.
 verify_result: pass | fail
 pre_existing: none
 missing_repo_info: none
@@ -137,4 +175,6 @@ user_notes: |
 ````
 
 `head` is `git rev-parse --short HEAD`, plus `+dirty` when the tree has
-uncommitted changes. A result belongs to that tree only.
+uncommitted changes. `tree` is the tree id. A result belongs to that tree only.
+`verify_result: pass` with skipped gates means: the gates that ran passed here,
+and the skipped ones passed earlier on the same tree.

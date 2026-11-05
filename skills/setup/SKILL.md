@@ -42,7 +42,7 @@ Read `.agents/devteam.md`, following its pointers, and show a table
   `### Build order` with content.
 - **Optional:** `### Shared surfaces`, `### Review triggers`,
   `## Verification gates`, `## Delivery`, `## Tickets`, `## Worktrees`,
-  `## CI`, `## Code review`, `## Acceptance tests`.
+  `## CI`, `## Code review`, `## Acceptance tests`, `## Risk`.
 
 Headings inside code blocks do not count. Everything present → say the repo is
 ready and stop. Otherwise work through every row that is missing or incomplete,
@@ -90,8 +90,8 @@ root.
 Draft every missing or incomplete row, in this order: `## Areas` (table, unowned
 paths, gate configs), `### Build order`, `### Shared surfaces`,
 `### Review triggers`, then `## Verification gates`, `## Delivery`,
-`## Tickets`, `## Worktrees`, `## CI`, `## Code review`, `## Acceptance tests`.
-No questions yet.
+`## Tickets`, `## Worktrees`, `## CI`, `## Code review`, `## Acceptance tests`,
+`## Risk`. No questions yet.
 
 - **Areas.** One area per part of the code with its own stack, test command or
   owner — usually a top-level app or package. Paths cover the code and its
@@ -112,7 +112,14 @@ No questions yet.
   `AGENTS.md`, or an MCP server for one in the repo's config. Name the tracker,
   the tools to reach it, and the key pattern. Statuses, the ready mark and the
   readiness brief go in only where the repo states them; otherwise they are
-  gaps for the user.
+  gaps for the user. So do the `Ticket set`, `Order` and `Parent start` lines
+  that `/devteam:implement`'s `ticket-sets.md` describes.
+- **Risk.** Write `## Risk` only when the repo already grades PR risk: a
+  rules file for it, risk labels in `gh label list`, or a workflow that blocks
+  the merge on them. Point at the rules and the record template rather than
+  copying them. Write the lines `/devteam:implement` § What `## Risk` holds
+  lists, each only where the repo states it. Never invent levels or rules; with
+  none in the repo, the section is a gap, not a default.
 - **Note the source** of each line: the file, script or workflow it came from. A
   fact you could not find in the repository itself (only in a PR comment, a log
   or memory) is marked _(unverified)_ in the text, or left out.

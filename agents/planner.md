@@ -83,6 +83,23 @@ phase nobody can verify.
    lives. A task with no behavioural test surface (config, docs, a pure rename)
    says so.
 
+## A ticket set
+
+You may be given a parent ticket, its child tickets and an order table: one PR
+delivers every child. Then:
+
+- **Every phase delivers exactly one child.** Add `ticket: <key>` to it. Work
+  that two children both need goes in the earlier child's phase, and the later
+  one's `depends_on` names it.
+- **A child's phases come after the phases of every child that blocks it**,
+  as well as following `### Build order`. If the two orders clash, say so in
+  `decisions_needed`; do not pick one silently.
+- **Every acceptance criterion names its child** with `ticket: <key>`. Take
+  them from each child's own criteria. The parent's text is context, not a
+  criterion of its own.
+
+Without a ticket set, write `ticket: none` or leave the key out.
+
 ## Acceptance-test phases
 
 If the repo has `## Acceptance tests`, it sets the bar for when a task needs
@@ -276,6 +293,7 @@ phases:
   - id: P1
     title: Add archived_at to orders and an archive endpoint
     area: api
+    ticket: none
     depends_on: none
     touches: src/api/orders.ts, src/api/routes/orders.ts, test/api/orders.test.ts
     tasks:
@@ -294,6 +312,7 @@ phases:
     changes_stored_data: no
 acceptance_criteria:
   - id: AC1
+    ticket: none
     criterion: A shop admin can archive an order, and it disappears from their list.
     checkable_by: |
       Open /orders in the browser, click Archive on one order, then confirm

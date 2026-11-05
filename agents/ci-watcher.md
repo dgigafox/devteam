@@ -71,7 +71,9 @@ follow, up to the first blank line. Give each path its owner (see _Owners_).
 ## Mode `ci`
 
 Wait until every job has finished, except the OCR check `## CI` names. That one
-belongs to the review watcher.
+belongs to the review watcher. Also skip the merge-gate check `## Risk` names,
+if the repo file has one: it waits for the risk and for QA, so it fails until
+then, and that is not a failure of this change.
 
 ```bash
 gh pr checks <pr> --json name,workflow,bucket,state,link,startedAt,completedAt
@@ -84,7 +86,7 @@ each Bash call under 9 minutes and start another until the wait is over.
 Wait at most 60 minutes from your first poll. Then report what is still pending,
 with `status: timeout`. The orchestrator asks the user whether to keep waiting.
 
-When nothing but OCR is pending, read each failed job:
+When nothing but OCR (and the merge gate) is pending, read each failed job:
 
 ```bash
 gh pr view <pr> --json baseRefName,files

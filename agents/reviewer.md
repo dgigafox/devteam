@@ -250,6 +250,44 @@ of:
 There is one re-review. If findings are still unresolved after it, that goes to
 the user — do not ask for another round.
 
+## Mode `risk`
+
+The orchestrator may dispatch you to grade the risk of the final PR, not to
+review it. This is a separate job: no findings, no severity, no fixes.
+
+You get the full diff, the PR's changed-file list, the rules file verbatim, and
+the levels, lowest first. Read `## Risk` in the repo file only to follow a
+pointer.
+
+1. Read the rules file's `Rules version:` line. Missing → add it to
+   `inputs_missing`.
+2. Compare every changed file in the diff with each rule. A rule matches when a
+   changed line does what the rule names. A possible match is a match: you are
+   deciding whether a person tests this, and a wrong `normal` skips that test.
+3. The level is the highest level any matched rule gives. A rule that names no
+   level gives the highest level. No match → the lowest level.
+4. If the diff's files differ from the changed-file list, or you could not read
+   part of the diff, say so in `inputs_missing` and set `status: partial`.
+
+Never fall back to the lowest level because an input is missing. Report it.
+
+````markdown
+```agent-result
+role: reviewer
+agent: devteam:reviewer
+mode: risk
+status: success | partial | blocked
+rules_version: 1
+level: high
+matched:
+  - rule: R3
+    file: src/app/documents.ts
+    why: stores the passport number on upload
+  # `none` when no rule matches
+inputs_missing: none
+```
+````
+
 ## Severity, applied
 
 `blocker` — wrong, unsafe, or loses data. `major` — a real defect; the

@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Take one task — a ticket, plain instructions, or work on an open pull request — to a reviewed pull request with the devteam agents, in any repository with a `.agents/devteam.md` file. Readiness check and ticket moves when the repo uses tickets, worktree, plan, one builder per area, review, QA in the running app, commits, PR, then CI and code review watched until clean. Run only when typed as /devteam:implement followed by a ticket key or instructions, or /devteam:implement --continue [slug]. Run /devteam:setup first to prepare a repository.
+description: Take one task — a ticket, plain instructions, or work on an open pull request — to a reviewed pull request with the devteam agents, in any repository with a `.agents/devteam.md` file. Readiness check and ticket moves when the repo uses tickets, worktree, plan, one builder per area, review, QA in the running app, commits, PR, then CI and code review watched until clean, and the PR's risk classified when the repo grades risk. Run only when typed as /devteam:implement followed by a ticket key or instructions, or /devteam:implement --continue [slug]. Run /devteam:setup first to prepare a repository.
 disable-model-invocation: true
 ---
 
@@ -86,10 +86,12 @@ task) · **stop here**. The shape:
 ```
 
 The other sections this skill reads by heading are `## Verification gates`,
-`## Delivery`, `## Tickets`, `## Worktrees`, `## CI`, `## Code review` and
-`## Acceptance tests`. `## Tickets` says which tracker the repo uses, the
+`## Delivery`, `## Tickets`, `## Worktrees`, `## CI`, `## Code review`,
+`## Acceptance tests` and `## Risk`. `## Tickets` says which tracker the repo uses, the
 tools to reach it, its statuses for ready, in progress, review and QA, its ready
-mark, and its readiness brief. Without it, the repo uses no tickets. When an agent reports one missing (`needs_from: user` or
+mark, and its readiness brief. Without it, the repo uses no tickets. `## Risk`
+says how the repo grades a PR's risk ([Step 12](#step-12--classify-the-risk));
+without it, PRs carry no risk. When an agent reports one missing (`needs_from: user` or
 a `missing_repo_info` line), ask the user. Never guess a default.
 
 ### The repo file
@@ -179,8 +181,10 @@ its checks).
    and `echo "EXIT=$?"`.
 6. **A gate result belongs to the tree it ran on.** Any edit after a gate makes
    it stale — including a one-line fix, a test-only change, or a change the user
-   asked for. Every commit and every push runs `devteam:gates`
-   first. Gates never need a yes: run them, and ask only when one fails.
+   asked for. Every commit and every push needs a passing `devteam:gates`
+   result for the tree it commits or pushes. A pass on the same tree is reused,
+   not re-run ([Reusing a verified command](#reusing-a-verified-command)). Gates never need
+   a yes: run them, and ask only when one fails.
 7. **One builder at a time.** They share a worktree and its build output.
    Reviewers and watchers are read-only and run in parallel.
 8. **Every finding reaches the user before any fix.** Never blame this diff for
@@ -227,7 +231,7 @@ one exception is reading the repo file, which may sit in the main checkout.
 | `devteam:worktree`                                      | 1                            | the worktree                        |
 | `devteam:planner`                                       | 3                            | nothing                             |
 | `devteam:builder`, `devteam:docs`          | 4, and every fix             | their phase's area                  |
-| `devteam:reviewer`, `devteam:docs` (audit) | 5, and every fix             | nothing                             |
+| `devteam:reviewer`, `devteam:docs` (audit) | 5, every fix, and 12 (risk)  | nothing                             |
 | `devteam:qa`                                            | 6                            | its own memory only                 |
 | `devteam:gates`                                         | before every commit and push | lockfiles only, when asked          |
 | `devteam:ci-watcher`                                    | 9, 10                        | nothing                             |
@@ -246,7 +250,10 @@ Read the user's words. Whatever is not a ticket key or a PR is the
 
 1. **A ticket** (a key matching the pattern in `## Delivery`, such as
    `PROJ-123`) → follow [readiness.md](readiness.md). Not ready → stop with the
-   gaps. Write nothing to the tracker.
+   gaps. Write nothing to the tracker. When `## Tickets` has a `Ticket set`
+   line and the ticket has children, it is a parent: follow
+   [ticket-sets.md](ticket-sets.md), which checks the children and asks for the
+   PR shape.
 2. **A PR** (`#482`, `PR 482`, or its URL) →
    `gh pr view <n> --json number,title,body,headRefName,url,state`. It must be
    open. The PR already has its acceptance criteria, so skip the readiness
@@ -257,7 +264,9 @@ Read the user's words. Whatever is not a ticket key or a PR is the
 With no `## Tickets` section, the repo uses no tickets: every task is case 2 or
 3, and a PR's title is not searched for a key.
 
-"The ticket" in the steps below means there is one.
+"The ticket" in the steps below means there is one. For a parent delivered as
+one PR, it means every child, with the exceptions
+[ticket-sets.md](ticket-sets.md#one-pr-for-the-parent) lists.
 
 ## Step 1 — Worktree
 
@@ -294,6 +303,10 @@ installed; otherwise move the ticket with the tracker's tools, to the statuses
 - **A PR:** `resume` if the ticket is in review (`To Review`). Otherwise leave
   it.
 
+When the ticket has a parent and `## Tickets` names a `Parent start`, apply it
+right after the first `start`, unless the parent is already in progress or
+later.
+
 ## Step 3 — Plan
 
 Dispatch `devteam:planner` with:
@@ -305,6 +318,8 @@ Dispatch `devteam:planner` with:
   commit. Never pass a summary. If you must cut, name exactly what you cut.
 - with a PR: its title and body, verbatim, and `git diff --stat $BASE`. Say the
   branch already holds this work and the plan adds to it.
+- with a ticket set: the parent and every child, verbatim, and the order table.
+  Ask for a `ticket` on every phase and every criterion.
 - the worktree path.
 
 Without a ticket, the planner writes the acceptance criteria from the
@@ -368,7 +383,8 @@ agent writes the tests.
 
 For each phase:
 
-1. Note `git diff --name-only`, so you can tell what this phase touched.
+1. Note `git diff --name-only`, so you can tell what this phase touched. With a
+   ticket set, `start` the phase's child if it has not started (Step 2).
 2. Dispatch the phase's agent with: the worktree path, the area name and its
    Paths, the area's Instructions file pasted **verbatim** (or
    `Instructions: none` when the area has no file), its Fast verify and the
@@ -377,10 +393,12 @@ For each phase:
    verbatim. **Nothing else.** Builders do not run the full gates.
 3. Check the claim: every path inside the area's Paths, every expected path
    present, and the real diff matching `files_changed`.
-4. Tick the boxes with an inline note, and bump `**State:**`.
+4. Tick the boxes with an inline note, and bump `**State:**`. Record each
+   `pass` in the builder's `verified` under `## Verified`. Do the same after
+   every fix a builder makes.
 
 `devteam:builder` returns: `status`, `area`, `verify`,
-`verify_result`, `files_changed`, `tests_added`, `contract`, `needs_from`,
+`verify_result`, `verified`, `files_changed`, `tests_added`, `contract`, `needs_from`,
 `declined`, `conflicts`, `shared_surface`, `handoff`, `user_notes`. A
 `shared_surface` other than `none` → check it against `### Shared surfaces` as
 above. `devteam:docs` returns its own shape.
@@ -468,8 +486,10 @@ show the user and call `AskUserQuestion`: **go to QA** · **I'll fix it myself**
 ## Step 6 — QA
 
 Dispatch `devteam:qa` with the worktree path, the acceptance
-criteria, the diff, and the areas touched. It checks each criterion in the
-running app and runs the full gates. It never edits.
+criteria, the diff, the areas touched, and `already_passed`
+([Reusing a verified command](#reusing-a-verified-command)). It checks each
+criterion in the running app and runs the full gates, skipping any already
+passed on these files. It never edits. Record each `pass` in its `verified`.
 
 Report its two answers as two tables:
 
@@ -490,9 +510,71 @@ unmet criteria plus the gates (`pass: re-check`). Then show the result and call
 An `unverifiable` criterion is never met. It stays a visible gap, and only the
 user accepts it.
 
+## Reusing a verified command
+
+A verification command that already passed on the same files is skipped, not
+run again. This matters because the same command often runs three times on the
+same files: the builder's Fast verify after the last phase or a fix, QA's
+regression gates, and the commit gates. A commit doesn't change any file
+either, so the push would re-run them too.
+
+**Why not the commit sha?** Builders don't commit; every change stays
+uncommitted until Step 7. HEAD doesn't move while the files do, and a commit
+moves HEAD without changing a file. The tree id tracks the files themselves.
+
+**The tree id** is the id of the worktree's files as they are now, committed or
+not:
+
+```bash
+cd <worktree> && tmp=$(mktemp) && cp "$(git rev-parse --git-path index)" "$tmp" && GIT_INDEX_FILE="$tmp" git add -A && GIT_INDEX_FILE="$tmp" git write-tree; rm -f "$tmp"
+```
+
+It uses a throwaway index, so the real one is untouched. Ignored files (build
+output, `deps/`) don't count. The same files give the same id, before and after
+a commit.
+
+**Record every pass, one line per command.** The builder, QA and gates return a
+`verified` list: each command they ran, its directory, its tree id and its
+result. Add each `pass` to the ledger's `## Verified`:
+
+```markdown
+- `phoenix` · `mix precommit` · tree 3467875 · builder P2 · 2026-11-04 10:12
+```
+
+Never record `fail`, `degraded` or `skipped`, or a line with tree `changed` (the
+command edited files while it ran). When a gates result has
+`verify_result: pass`, also add one mode line: `gates <mode> · tree <id> ·
+<time>`.
+
+**Reuse it.** Before you dispatch QA or gates, take the tree id.
+
+- **Gates, `commit` mode:** a `gates commit`, `gates push` or `gates lockfiles`
+  line on this tree id → don't dispatch. Say
+  `gates: reused — tree <id> passed at <time>`.
+- **Gates, `push` mode:** a `gates push` line on this tree id → don't dispatch.
+- **Otherwise, QA and gates:** pass `already_passed`, every `## Verified` line
+  on this tree id. The agent skips each command on that list and runs the rest.
+  On a clean run, the push runs only the push-only gates.
+- **Builders** get no list. They change files, so nothing they could skip would
+  still match.
+
+A skip matches only the same command, from the same directory, on the same tree
+id. A narrowed `mix test test/foo_test.exs` never stands in for
+`mix precommit`.
+
+Caveats:
+
+- Any edit changes the tree id, so every command runs again, however small the
+  edit.
+- A merge of the base branch changes the tree. Nothing from before it counts.
+- If the repo file was edited since a pass, don't reuse it. It may name
+  different gates now.
+- A skip assumes the same files give the same result. A flaky test or a service
+  that was up then and down now is not re-checked.
+
 ## Step 7 — Commit
 
-1. Dispatch `devteam:gates` in `commit` mode. Any `fail` → show a
+1. `devteam:gates` in `commit` mode, reusing passes where it can. Any `fail` → show a
    table (**command** · **exit** · **stopped at** · **log**) and call
    `AskUserQuestion`: **fix it** (owner, then reviewer, then gates again) ·
    **stop**.
@@ -508,8 +590,8 @@ user accepts it.
 
 ## Step 8 — Pull request and review
 
-1. Dispatch `devteam:gates` in `push` mode. It adds the push-only
-   gates `## Verification gates` names for the changed paths. Any `fail` stops
+1. `devteam:gates` in `push` mode, reusing a pass where it can. It adds the
+   push-only gates `## Verification gates` names for the changed paths. Any `fail` stops
    the push: show the same gate table and call `AskUserQuestion`: **fix it**
    (owner, reviewer, gates again) · **stop here**.
 2. **No PR yet:** use `pr`. The title follows `## Delivery`:
@@ -521,7 +603,11 @@ user accepts it.
    `gh pr create`, and `submit` the ticket. **A PR already:** `git push` to its
    branch. Never open a second PR, and never rewrite its title or body. With a
    ticket, `submit` it (`ticket-lifecycle submit`, or the tracker's tools).
-3. Record `**PR:**`, `**Head:**` and the push time (UTC) in the ledger. State →
+3. With `## Risk`: a new PR opens with the pending PR label (tell `pr` to add
+   it, or pass `--label` to `gh pr create`), and the ticket gets the pending
+   ticket label. An existing PR gets the [risk reset](#resetting-the-risk)
+   after this push.
+4. Record `**PR:**`, `**Head:**` and the push time (UTC) in the ledger. State →
    `pr-open`.
 
 ## Step 9 — Conflict check
@@ -551,7 +637,7 @@ On `conflicting`, show a table: **file** · **owner**. Call `AskUserQuestion`:
    **adjust** · **stop here**. **adjust** sends the user's words to that file's
    owner, then shows the table again.
 6. On **commit and push**: you commit the merge. Then gates in `push` mode, then
-   push, then steps 9–11 again.
+   push, the [risk reset](#resetting-the-risk), then steps 9–11 again.
 
 ## Steps 10 and 11 — Watch CI and OCR
 
@@ -565,6 +651,8 @@ agents in one message. Each reports once, on its own:
 
 **A report for an older commit is dropped.** Compare its `head` with the PR's
 current head. A `stale` status, or a mismatch, is never shown as current.
+
+When both report clean for the current head, go to Step 12.
 
 When one reports while the other still runs, its `AskUserQuestion` also offers:
 **fix now** (push, and both watches restart) or **wait for the other** and fix
@@ -630,16 +718,114 @@ the user asks for — takes this path:
 5. **Checkpoint:** the commit split (Step 7.2). You commit after a yes.
 6. **Checkpoint:** the push (Step 7.4). On a yes, gates in `push` mode, then you
    push.
-7. `submit` the ticket, if there is one (Step 8). State → `pr-open`.
-8. Steps 9–11 again.
+7. The [risk reset](#resetting-the-risk), with `## Risk`.
+8. `submit` the ticket, if there is one (Step 8). State → `pr-open`.
+9. Steps 9–11 again, then Step 12.
+
+## Step 12 — Classify the risk
+
+Skip without `## Risk`. It runs once both watches report clean for the PR's
+current head. State → `classifying`; after the route, `done`.
+
+**Why the diff and not a person decides.** The risk says whether the PR needs
+manual QA before it merges. A merge-gate check in the repo reads the label and
+the record comment, so a PR left at pending can never merge. Grading the final
+diff against written rules gives the same answer every time, and the record
+shows why.
+
+### What `## Risk` holds
+
+```markdown
+## Risk
+
+- Rules: `docs/risk-levels.md` (has a `Rules version:` line)
+- Levels, lowest first: normal, high. Unclassified: pending
+- PR labels: `risk:pending` · `risk:normal` · `risk:high`. Also removed on reset: `qa:passed`
+- Ticket labels: `risk-pending` · `risk-normal` · `risk-high`
+- Proposal: the parent ticket's `## Risk` section, `Proposed: <level>`
+- Record: a PR comment whose first line is `<!-- acme:risk-record v1 -->`. Template: see `docs/pr-risk.md` § Risk record
+- Merge-gate check: `risk-gate`
+- Handoff: level `high` → the QA status, with skill `ticket-lifecycle handoff-qa`
+```
+
+Every line but Rules, Levels, PR labels and Record is optional. No ticket
+labels → only the PR is labelled. No proposal → record `none`. No merge-gate
+check → nothing to exclude. No handoff → every level stays in review.
+
+### Classify
+
+1. **Same head everywhere.** The local `HEAD`, the PR's `headRefOid` and the
+   head both watches reported on must be one commit. Otherwise run steps 9–11
+   for the PR's head first.
+2. **Labels exist.** `gh label list --limit 500 --json name` must hold every PR
+   label `## Risk` names. A missing one → stop and say so; a maintainer creates
+   it. Never create a label.
+3. **Dispatch `devteam:reviewer` in `risk` mode**, fresh, with: the full
+   `git diff $BASE...HEAD`, the file list from `gh pr diff <pr> --name-only`,
+   the rules file, verbatim, and the levels. It returns each matched rule with
+   its file, the level the rules give, the rules version, and any input it
+   could not read.
+4. **Decide.** The level is the higher of the reviewer's level and the
+   proposal. A proposal is never lowered. A child reads it from its parent.
+5. **Fail closed.** A missing input, a file list that differs between the two
+   diffs, a reviewer `status` other than `success`, or a template field you
+   cannot fill all keep the risk at pending. Show each reason and call
+   `AskUserQuestion`: **retry** · **stop here**. Never fall back to the lowest
+   level.
+6. **Write the record** as a new PR comment
+   (`gh pr comment <pr> --body-file <file>`, the file in the scratchpad), from
+   the repo's template. Fill each field the template names from the run: the
+   level, the matched rules with files, the proposal, the rules version, the
+   full head sha, the ticket. A field the template explains (such as a Spec
+   version, or `none` without one) is filled as it says. Never edit an older
+   record: the newest one counts.
+7. **Then set the labels**, so the merge gate reads the new record: remove the
+   pending PR label and add the level's. With a ticket and ticket labels, set
+   the level's label and remove the other risk labels. Change ticket labels by
+   read, change, read again; keep every other label.
+8. **Verify.** Read the PR again. The head is unchanged and it has exactly one
+   risk label. The head moved → [reset](#resetting-the-risk) and start again
+   at step 1.
+
+No question is asked before steps 6 and 7: the labels come from the diff and
+the rules, not from a choice. Record the level, the matched rules, the head and
+the record's URL under the ledger's `## Risk`.
+
+### Route
+
+- A level `## Risk` hands off, with a ticket → the handoff. Use the named skill
+  when it is installed, with the ticket, the PR, the head and the record's URL.
+  Otherwise take the tracker's transition to the QA status `## Tickets` names.
+  Move only a ticket in the review status; anything else, or no such
+  transition → say so and leave it. The record authorizes the handoff, so no
+  question is asked.
+- A level that hands off, without a ticket → say the PR needs manual QA before
+  it merges.
+- Any other level → the PR stays in review for a person to merge.
+
+### Resetting the risk
+
+Every push after a classification makes it stale: a review fix, a CI fix, a QA
+fix, a merge of the base. Right after each push to a PR, with `## Risk`:
+
+1. Remove every risk label the PR has, and the labels `## Risk` lists as also
+   removed on reset. Add the pending label. One `gh pr edit` call, removing
+   only labels the PR has.
+2. With a ticket and ticket labels, set the pending ticket label and remove the
+   others.
+3. Clear the ledger's `**Risk:**` to `pending`.
+
+Step 12 then runs again once the watches are clean on the new head.
 
 ## Done
 
 The run is done when both watches report clean for the PR's current head: every
-non-OCR job passed and every OCR finding is fixed, declined or deferred with a
-reply. Set `**State:** done` and print:
+non-OCR job passed (the merge-gate check aside) and every OCR finding is fixed,
+declined or deferred with a reply. With `## Risk`, Step 12 has also classified
+and routed that head. Set `**State:** done` and print:
 
-1. **PR** — URL, head sha, ticket status (or `no ticket`).
+1. **PR** — URL, head sha, ticket status (or `no ticket`), and the risk level
+   with its record's URL.
 2. **Changed** — file · agent · why.
 3. **Gates** — command · exit code · log. Pre-existing failures labelled.
 4. **Acceptance** — id · criterion · verdict. `unverifiable` ones are gaps.
@@ -648,7 +834,8 @@ reply. Set `**State:** done` and print:
 
 Items 2–5 are tables.
 
-**Suggest QA when the PR is mergeable.** Only with a ticket, and only when
+**Suggest QA when the PR is mergeable.** Only without `## Risk` (with it, Step
+12 routes the ticket), only with a ticket, and only when
 `## Tickets` names a QA status (in Jira, often `To QA`). The PR is mergeable when no review thread is unresolved and every
 check that blocks the merge passed:
 
@@ -676,4 +863,6 @@ After the PR merges, the ticket is outside this skill. Where a
 - The gate configs under `## Areas` are gates. Nobody edits a gate to make a
   finding go away.
 - Watch A's required checks, the OCR check and its bot author, and the coverage
-  checks come from `## CI`. The review rubric comes from `## Code review`.
+  checks come from `## CI`. The review rubric comes from `## Code review`. The
+  merge-gate check comes from `## Risk`: Watch A skips it, because it waits for
+  the risk and for QA, not for this change.

@@ -164,6 +164,21 @@ paths the diff touched, and the acceptance suite if `## Acceptance tests` says
 it gates those paths. If the diff touched no path any gate covers, say so rather
 than inventing a gate.
 
+**Skip what already passed.** Your brief has `already_passed`: commands that
+passed on some tree id, as `dir · command · tree`. Before the gates, take the
+id of the worktree's files as they are now:
+
+```bash
+cd <worktree> && tmp=$(mktemp) && cp "$(git rev-parse --git-path index)" "$tmp" && GIT_INDEX_FILE="$tmp" git add -A && GIT_INDEX_FILE="$tmp" git write-tree; rm -f "$tmp"
+```
+
+A gate in `already_passed` with the same directory, the same command and your
+tree id already passed on these exact files. Don't run it. Report it with
+`result: skipped` and `verdict: passed on tree <id>`. Anything else, run.
+
+Report every gate in `verified` with the tree id. Take the id again after each
+gate; if it changed, the gate edited files, so report `tree: changed`.
+
 Send each to a log and print its exit code. Never pipe it anywhere:
 
 ```bash
@@ -280,6 +295,13 @@ regression:
     stopped_at: none
     log: /tmp/qa-gate-ui.log
     verdict: pass
+verified:
+  - dir: api
+    command: <the api area's gate, without the cd>
+    tree: 3467875302c4f8043ec6efa18c1d06581ce83e92
+    result: fail
+  # one item per regression gate. `dir` relative to <app>, `.` for <app> itself.
+  # `tree: changed` when the gate edited files. `none` if you ran no gate.
 verify: |
   The gate commands, one per line, exactly as run.
 verify_result: degraded
