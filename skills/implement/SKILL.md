@@ -39,18 +39,46 @@ The agents ship with this plugin as `devteam:<role>`. If `devteam:planner` is
 not an agent you can dispatch, stop and say so: the plugin is not loaded, so
 restart the session after installing or enabling it.
 
-**Optional skills.** Four steps use a skill when it is installed, and do the
-work directly when it is not. Check once, at the start, which are available, and
-record them in the ledger:
+**Skills.** Some jobs can be handed to a skill the repo already uses. This
+skill never looks one up by name: the repo file's `## Skills` table says which
+skill does which job. A job with no row, or `none`, is done the built-in way.
+No `## Skills` section → every job is built in.
 
-| Skill                 | Without it                                                                                                                                            |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `create-worktree`     | The worktree agent runs `git worktree add` itself (its own file says how)                                                                              |
-| `ticket-lifecycle`    | Move the ticket with the tracker's own tools, as `## Tickets` says; with no way to move it, skip the move and say so once                             |
-| `conventional-commit` | Write each message yourself: `type(scope): subject`, a body that says why, and the repo's trailer rules                                              |
-| `pr`                  | `gh pr create` with a title in the same form, and a body from the run, filling the repo's pull request template (`.github/PULL_REQUEST_TEMPLATE.md`) if it has one |
+| Job             | Built in                                                                                                                                                  |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `worktree`      | The worktree agent runs `git worktree add` itself (its own file says how)                                                                                  |
+| `tickets`       | Move the ticket with the tracker's own tools, to the statuses `## Tickets` names; with no way to move it, skip the move and say so once                   |
+| `commit`        | Write each message yourself: `type(scope): subject`, a body that says why, and the repo's trailer rules                                                  |
+| `pr`            | `gh pr create` with a title in the same form, and a body from the run, filling the repo's pull request template (`.github/PULL_REQUEST_TEMPLATE.md`) if it has one |
+| `readiness-fix` | Nothing: the not-ready stop lists the gaps only                                                                                                           |
+| `after-merge`   | Nothing: the summary says the ticket is closed by hand                                                                                                    |
 
-Otherwise read the [repo file](#the-repo-file) and check four things:
+The table's shape:
+
+```markdown
+## Skills
+
+| Job | Skill | Notes |
+| --- | --- | --- |
+| worktree | `create-worktree` | |
+| tickets | `ticket-lifecycle` | Events: handoff → `handoff-qa`, parent-start → `story-start` |
+| commit | `conventional-commit` | |
+| pr | `pr` | Opens the PR, then runs the ticket's submit |
+```
+
+**Ticket events** are this skill's words: `ready`, `start`, `resume`,
+`submit`, `handoff` and `parent-start`. The `tickets` skill gets each one by
+the same name, unless the Notes map it to the skill's own name. Anything else
+in Notes is passed to the skill as written.
+
+Check once, at the start, that every named skill is installed. A named skill
+that is missing → call `AskUserQuestion`: **use the built-in way** · **stop
+here**. The repo expects that skill, so never fall back without saying so.
+Record each job's skill, or `built in`, in the ledger's `**Skills:**` line.
+Below, "the `commit` skill" means the skill that row names; without one, do the
+built-in work.
+
+Then read the [repo file](#the-repo-file) and check four things:
 
 - the repo file exists, in the session's folder or the main checkout (see
   [the repo file](#the-repo-file))
@@ -195,8 +223,7 @@ its checks).
    · **adjust** · …) is the tool's options, with your recommendation first and
    labelled `(Recommended)`. If the tool times out with no answer, call it
    again. Never fall back to a recommendation. This holds for questions this
-   skill does not list, and for questions a skill you use asks
-   (`conventional-commit`, `pr`, `ticket-lifecycle`, `create-worktree`). **Every
+   skill does not list, and for questions any skill from `## Skills` asks. **Every
    stop that waits for the user ends in an `AskUserQuestion` call**, so a
    checkpoint never looks like a status update. Only a stop that ends the run
    (not ready, no `## Areas`, `blocked` worktree) is plain text.
@@ -276,9 +303,9 @@ git rev-parse --git-dir; git rev-parse --git-common-dir   # equal ⇒ main check
 
 - **Main checkout:** dispatch `devteam:worktree` with the slug
   ([ledger.md](ledger.md)), the PR number if there is one, the main checkout's
-  path, the app root relative to the git root (`.` in a single repo), and the
-  areas the run will touch: for a PR, the areas its changed paths fall in;
-  otherwise `all`. Show the user a table (**item** · **value**) of its `path`,
+  path, the app root relative to the git root (`.` in a single repo), the
+  areas the run will touch (for a PR, the areas its changed paths fall in;
+  otherwise `all`), and the `worktree` skill or `built in`. Show the user a table (**item** · **value**) of its `path`,
   `branch`, `resources`, and any `failed_step` with the fix. A `blocked` result
   stops the run. A `partial` result → call `AskUserQuestion`: **fix it and
   continue** · **stop**.
@@ -294,18 +321,18 @@ means that branch. Record `Base` as `git merge-base origin/<base> HEAD`.
 
 ## Step 2 — Ticket to in progress
 
-Skip without a ticket. Use `ticket-lifecycle` from the worktree when it is
-installed; otherwise move the ticket with the tracker's tools, to the statuses
-`## Tickets` names. Below, its events and their usual Jira statuses:
+Skip without a ticket. Send each event to the `tickets` skill, from the
+worktree; built in, move the ticket with the tracker's tools, to the statuses
+`## Tickets` names. Below, the events and their usual Jira statuses:
 
 - **No PR:** `ready` if the ticket is not already ready or in progress (`Ready`,
   `In Progress`), then `start`.
 - **A PR:** `resume` if the ticket is in review (`To Review`). Otherwise leave
   it.
 
-When the ticket has a parent and `## Tickets` names a `Parent start`, apply it
-right after the first `start`, unless the parent is already in progress or
-later.
+When the ticket has a parent and `## Tickets` names a `Parent start`, send
+`parent-start` right after the first `start` (built in: move the parent to that
+status), unless the parent is already in progress or later.
 
 ## Step 3 — Plan
 
@@ -578,7 +605,7 @@ Caveats:
    table (**command** · **exit** · **stopped at** · **log**) and call
    `AskUserQuestion`: **fix it** (owner, then reviewer, then gates again) ·
    **stop**.
-2. Use `conventional-commit`. Work out the split from the ledger's phases and
+2. Use the `commit` skill. Work out the split from the ledger's phases and
    `git diff --stat HEAD`: one commit per coherent change, scoped to the ticket
    key, or the repo's no-ticket scope from `## Delivery` without a ticket. Show
    the proposed commits as a table (**#** · **subject** · **files**) and call
@@ -594,17 +621,17 @@ Caveats:
    push-only gates `## Verification gates` names for the changed paths. Any `fail` stops
    the push: show the same gate table and call `AskUserQuestion`: **fix it**
    (owner, reviewer, gates again) · **stop here**.
-2. **No PR yet:** use `pr`. The title follows `## Delivery`:
+2. **No PR yet:** use the `pr` skill. The title follows `## Delivery`:
    `<type>(PROJ-123): <lowercase subject>`, or the no-ticket scope without a
    ticket. The body comes from the run: what changed and why by area, the
    acceptance criteria with QA's verdicts, the gates that ran, and the findings
-   left alone with their reasons. Never a task id. `pr` pushes, opens the PR,
-   and moves the ticket to review. Without `pr`, push, open the PR with
-   `gh pr create`, and `submit` the ticket. **A PR already:** `git push` to its
-   branch. Never open a second PR, and never rewrite its title or body. With a
-   ticket, `submit` it (`ticket-lifecycle submit`, or the tracker's tools).
-3. With `## Risk`: a new PR opens with the pending PR label (tell `pr` to add
-   it, or pass `--label` to `gh pr create`), and the ticket gets the pending
+   left alone with their reasons. Never a task id. Then `submit` the ticket,
+   unless the `pr` row's Notes say that skill does it. Built in: push, open
+   the PR with `gh pr create`, then `submit`. **A PR already:** `git push` to
+   its branch. Never open a second PR, and never rewrite its title or body.
+   With a ticket, `submit` it.
+3. With `## Risk`: a new PR opens with the pending PR label (pass it to the
+   `pr` skill, or `--label` to `gh pr create`), and the ticket gets the pending
    ticket label. An existing PR gets the [risk reset](#resetting-the-risk)
    after this push.
 4. Record `**PR:**`, `**Head:**` and the push time (UTC) in the ledger. State →
@@ -745,7 +772,7 @@ shows why.
 - Proposal: the parent ticket's `## Risk` section, `Proposed: <level>`
 - Record: a PR comment whose first line is `<!-- acme:risk-record v1 -->`. Template: see `docs/pr-risk.md` § Risk record
 - Merge-gate check: `risk-gate`
-- Handoff: level `high` → the QA status, with skill `ticket-lifecycle handoff-qa`
+- Handoff: level `high` → the QA status
 ```
 
 Every line but Rules, Levels, PR labels and Record is optional. No ticket
@@ -793,9 +820,9 @@ the record's URL under the ledger's `## Risk`.
 
 ### Route
 
-- A level `## Risk` hands off, with a ticket → the handoff. Use the named skill
-  when it is installed, with the ticket, the PR, the head and the record's URL.
-  Otherwise take the tracker's transition to the QA status `## Tickets` names.
+- A level `## Risk` hands off, with a ticket → send `handoff` to the `tickets`
+  skill, with the ticket, the PR, the head and the record's URL. Built in:
+  take the tracker's transition to the QA status `## Tickets` names.
   Move only a ticket in the review status; anything else, or no such
   transition → say so and leave it. The record authorizes the handoff, so no
   question is asked.
@@ -850,8 +877,8 @@ tracker's transition to that status (in Jira, `listJiraIssueTransitions` then
 the transition). No such transition → say so and leave the ticket. Moving it
 needs no new push and no gates.
 
-After the PR merges, the ticket is outside this skill. Where a
-`complete-delivery` skill is installed, it closes the ticket.
+After the PR merges, the ticket is outside this skill. Name the `after-merge`
+skill, if `## Skills` has one, as the way to close it.
 
 ## Notes
 

@@ -34,6 +34,7 @@ and write into any plan directory they find. A flat file matches none of them.
 
 **State:** planned **Pace:** per-phase **Base:** <sha> **Branch:** <branch>
 **Worktree:** <absolute path> **App:** <app root, relative; `.` in a single repo> **Repo file:** <absolute path of .agents/devteam.md> **Ticket:** PROJ-123 | none **PR:** none **Head:** none **Risk:** none | pending | <level>
+**Skills:** worktree `create-worktree` · tickets built in · commit built in · pr `pr`
 
 **Instruction:** <the user's words, verbatim, or none>
 

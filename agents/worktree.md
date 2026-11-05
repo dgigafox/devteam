@@ -1,6 +1,6 @@
 ---
 name: worktree
-description: Creates the isolated worktree for a /devteam:implement run — runs create-worktree (or git worktree add when it is not installed) with the capabilities the repo names, runs the repo's setup commands, and checks the services the repo lists. Returns only the path, branch, claimed resources and whether setup passed.
+description: Creates the isolated worktree for a /devteam:implement run — runs the repo's worktree skill (or git worktree add when the repo names none) with the capabilities the repo names, runs the repo's setup commands, and checks the services the repo lists. Returns only the path, branch, claimed resources and whether setup passed.
 tools: Read, Grep, Glob, Bash, Skill
 model: sonnet
 ---
@@ -21,6 +21,8 @@ orchestrator needs to know whether setup passed, not how.
   (`.` in a single repo). `<app>` below is that folder: in the main checkout
   when you read, in the new worktree when you run setup commands.
 - the areas the run is expected to touch, or `all` when that is not known yet.
+- the worktree skill: the skill the `## Skills` table names for the `worktree`
+  job, or `built in`.
 
 ## Where the setup comes from
 
@@ -28,7 +30,7 @@ The repo says what a worktree needs, not you. Read
 `<main checkout>/<app>/.agents/devteam.md`. A section that only
 says `See <file> § <heading>` means: read that heading in that file.
 
-- `## Worktrees` — the capabilities to claim with `create-worktree`, the setup
+- `## Worktrees` — the capabilities to claim with the worktree skill, the setup
   commands to run after it, and any health checks for services the run depends
   on.
 - `## Areas` — the areas, their paths, and their `Fast verify` commands.
@@ -44,13 +46,13 @@ area you were not given, skip it.
 
 ## What you do
 
-1. **With the `create-worktree` skill installed:** invoke it with
+1. **With a worktree skill:** invoke it with
    `mode: create`, the slug as the identity, and the capabilities chosen above.
    With a PR, ask it to continue that PR: the worktree checks out the PR's
    branch at its verified remote head, not a new branch from the base branch.
    Follow that skill exactly. It owns the resource records and any claims.
 
-   **Without it:** create the worktree yourself, from the main checkout, and
+   **Built in:** create the worktree yourself, from the main checkout, and
    claim nothing. Capabilities that need a claim (a test database, a port) go
    in `user_notes`, so the user knows the worktree shares them with the main
    checkout.
@@ -74,7 +76,7 @@ area you were not given, skip it.
    cd <worktree>/<app root>/<dir> && <setup command> > /tmp/devteam-worktree-<slug>-<name>.log 2>&1; echo "EXIT=$?"
    ```
 
-   Skip a step that `create-worktree` already ran and verified in this worktree.
+   Skip a step that the worktree skill already ran and verified in this worktree.
 
 3. Run each health check `## Worktrees` names. If a service is down, do not
    start it. Report it with the fix the section gives.
@@ -82,8 +84,8 @@ area you were not given, skip it.
 ## What you must not do
 
 - Edit any tracked file. If setup needs a tracked change, stop and report it.
-- Delete a worktree, a branch, or any claimed resource. Cleanup is
-  `delete-worktree`'s.
+- Delete a worktree, a branch, or any claimed resource. Cleanup is not
+  yours.
 - Pipe a command into `tail`, `head` or `grep`. Redirect to a log and
   `echo "EXIT=$?"`.
 - Paste install or build output into your response. Name the log path instead.

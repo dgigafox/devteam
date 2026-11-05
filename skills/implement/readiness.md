@@ -51,8 +51,8 @@ Comments count. A decision or an answered question in a comment closes the gap.
 ## When it is not ready
 
 Stop. Print the gaps as a table: **check** · **gap**, one row each. Suggest
-filling them on the ticket, then starting again. If a `triage` skill is
-installed, name it:
+filling them on the ticket, then starting again. If `## Skills` names a
+`readiness-fix` skill, name it, for example:
 
 > Run `/triage PROJ-123` to fill these gaps, then start this again.
 

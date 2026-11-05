@@ -47,15 +47,18 @@ whatever the task. In a monorepo, each app keeps its own file in
 
 ## Optional skills
 
-These skills are used when installed. Without them, devteam does the step
-itself:
+A repository can hand some jobs to skills it already uses. The repo file's
+`## Skills` table names the skill for each job; devteam never looks one up by
+name. A job with no row is done the built-in way:
 
-| Skill                 | Without it                                       |
-| --------------------- | ------------------------------------------------ |
-| `create-worktree`     | `git worktree add`, with no resource claims      |
-| `ticket-lifecycle`    | The tracker's own tools, as `## Tickets` says     |
-| `conventional-commit` | Writes the Conventional Commits message itself   |
-| `pr`                  | `gh pr create`, filling the repo's PR template   |
+| Job             | Built in                                          |
+| --------------- | ------------------------------------------------- |
+| `worktree`      | `git worktree add`, with no resource claims       |
+| `tickets`       | The tracker's own tools, as `## Tickets` says     |
+| `commit`        | Writes the Conventional Commits message itself    |
+| `pr`            | `gh pr create`, filling the repo's PR template    |
+| `readiness-fix` | Lists a ticket's gaps, with no skill to suggest   |
+| `after-merge`   | Leaves closing the ticket to a person             |
 
 With no `## Tickets` section, the repository uses no tickets and every ticket
 step is skipped.

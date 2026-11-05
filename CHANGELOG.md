@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.0 — 2026-11-06
+
+- Skills are set by the repo, not looked up by name. A new `## Skills` table
+  in `.agents/devteam.md` names the skill for each job: `worktree`, `tickets`,
+  `commit`, `pr`, `readiness-fix` and `after-merge`. Its Notes map devteam's
+  ticket events (`ready`, `start`, `resume`, `submit`, `handoff`,
+  `parent-start`) to the skill's own. A job with no row is done the built-in
+  way, and a named skill that is not installed is asked about, never skipped
+  silently. **Breaking:** a repo without `## Skills` no longer uses
+  `create-worktree`, `ticket-lifecycle`, `conventional-commit` or `pr` just
+  because they are installed. `/devteam:setup` drafts the table from the
+  repo's installed skills, from the app up to the git root, and proposes
+  your own and plugin skills too, marked `(user-level)`, for you to keep or
+  drop.
+
 ## 0.2.0 — 2026-11-05
 
 - PR risk, for repos that grade it. A new optional `## Risk` section in

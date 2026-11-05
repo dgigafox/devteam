@@ -42,7 +42,7 @@ Read `.agents/devteam.md`, following its pointers, and show a table
   `### Build order` with content.
 - **Optional:** `### Shared surfaces`, `### Review triggers`,
   `## Verification gates`, `## Delivery`, `## Tickets`, `## Worktrees`,
-  `## CI`, `## Code review`, `## Acceptance tests`, `## Risk`.
+  `## CI`, `## Code review`, `## Acceptance tests`, `## Risk`, `## Skills`.
 
 Headings inside code blocks do not count. Everything present → say the repo is
 ready and stop. Otherwise work through every row that is missing or incomplete,
@@ -91,7 +91,7 @@ Draft every missing or incomplete row, in this order: `## Areas` (table, unowned
 paths, gate configs), `### Build order`, `### Shared surfaces`,
 `### Review triggers`, then `## Verification gates`, `## Delivery`,
 `## Tickets`, `## Worktrees`, `## CI`, `## Code review`, `## Acceptance tests`,
-`## Risk`. No questions yet.
+`## Risk`, `## Skills`. No questions yet.
 
 - **Areas.** One area per part of the code with its own stack, test command or
   owner — usually a top-level app or package. Paths cover the code and its
@@ -103,10 +103,25 @@ paths, gate configs), `### Build order`, `### Shared surfaces`,
   is not written; it goes on the gaps list.
 - **Gates decide verify commands.** Where `## Verification gates` names the
   check for a path, use it. Do not pick a heavier or lighter one.
-- **Worktree capabilities** come only from the list the `create-worktree` skill
-  defines, when it is installed. A tool or service that is not on it is a
-  health check or a setup command, not a capability. Without that skill, write
-  no capabilities: only setup commands and health checks.
+- **Worktree capabilities** come only from the list the `worktree` skill in
+  `## Skills` defines. A tool or service that is not on it is a health check
+  or a setup command, not a capability. With no worktree skill, write no
+  capabilities: only setup commands and health checks.
+- **Skills.** Write `## Skills` from the skills that can do a job, in two
+  groups:
+  - **In the repo:** `.agents/skills/` and `.claude/skills/` in every folder
+    from the app root up to the git root (a monorepo often installs them at
+    its root), and any skill `AGENTS.md` names.
+  - **Outside the repo:** your own skills (`~/.claude/skills/`) and plugin
+    skills, as this session lists them. Write a plugin skill as
+    `plugin:skill`. Mark each such row `(user-level)` in Notes: a teammate may
+    not have it, and their run then asks to use the built-in way or stop.
+
+  One row per job `/devteam:implement` § Skills lists, only where a skill's own
+  description clearly does that job. When both groups have one, take the
+  repo's. Read each skill's events or arguments and map devteam's ticket events
+  to them in Notes. A job no skill fits is left out, not guessed: it is done
+  the built-in way.
 - **Tickets.** Write `## Tickets` only when the repo shows a tracker: ticket
   keys in branch names, PR titles or commit subjects, a tracker named in
   `AGENTS.md`, or an MCP server for one in the repo's config. Name the tracker,
@@ -150,6 +165,10 @@ Show, in one message:
 - the gaps: **item** · **why** (a command that failed, or nothing to go on)
 
 Call `AskUserQuestion`: **keep it** · **adjust** · **discard all**.
+
+If `## Skills` has `(user-level)` rows, ask about them in the same call, as a
+second question with `multiSelect`: one option per row (**job** → **skill**),
+"keep these user-level skills?". A row left unticked is removed before step 6.
 
 - **keep it** → step 6.
 - **adjust** → apply the user's words, then show this review again.

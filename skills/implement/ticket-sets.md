@@ -22,14 +22,15 @@ Three optional lines. Without the first, a parent key is an ordinary ticket.
 ```markdown
 - Ticket set: the children are `parent = <KEY>` (JQL)
 - Order: `Blocks` links between children
-- Parent start: `ticket-lifecycle story-start`, or the parent's status → In Progress
+- Parent start: In Progress
 ```
 
 - **Ticket set** says how to find a parent's children with the tracker's tools.
 - **Order** names the link type where one child blocks another. None named →
   the children's key order.
-- **Parent start** says how the parent moves when work starts: a skill event,
-  or a status. None named → the parent is never moved.
+- **Parent start** is the parent's status once work starts. With a `tickets`
+  skill in `## Skills`, the move is that skill's `parent-start` event instead.
+  None named → the parent is never moved.
 
 ## Detect and check
 
