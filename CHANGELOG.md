@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.0 — unreleased
+## 0.4.0 — 2026-11-06
 
 - The planner states the design before the phases: the records and their
   states and which operations use them, the rules more than one operation
