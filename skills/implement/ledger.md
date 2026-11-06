@@ -108,7 +108,8 @@ Acceptance: <one sentence>
   tree id, who ran it, time (UTC). Plus one `gates <mode>` line per passing
   gates run. A command already passed on the same tree id is skipped, not run
   again (SKILL.md § Reusing a verified command).
-- `## Commits` holds each commit's sha and subject once made.
+- `## Commits` holds each commit's sha, subject and phase or fix round, one
+  per phase as the user moves on from it, then one per area per fix round.
 - `## Watches` holds one line per watch report: kind, head sha, outcome, what
   the user chose.
 - `## Risk` holds one line per classification: head sha, level, matched rules,

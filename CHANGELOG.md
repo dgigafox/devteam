@@ -28,6 +28,18 @@
   and `acceptance-tests` (the planner's line is the input, not the answer).
   Without a row, the docs audit and the reviewer keep their checks.
 - Per-phase pace is the recommended answer when the planner's risk is `high`.
+- A builder lives for its area for the whole run. A later phase in the same
+  area resumes it with its tasks and what other areas changed since; a fresh
+  builder starts only when the agent is gone or reports `context: tight`, and
+  then from a handoff that describes the design as built. Why: a fresh
+  builder per phase read the previous phase as a stranger and copied its
+  pattern, and the fix round went to a fifth builder who had written none of
+  it.
+- A phase is a commit. Each phase is committed when the user moves on from
+  it, with the gates reusing the builder's verify on that exact tree, and a
+  fix round is one commit per area. Step 7 is now the push checkpoint only.
+  Why: committing at the end, split by layer, built trees nobody had verified
+  and ran the full gates once more for each.
 
 ## 0.3.0 — 2026-11-06
 

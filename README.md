@@ -22,9 +22,11 @@ splits the work and keeps you in it:
   that the task didn't cover. You approve the design and the plan before any
   code is written, and the build stops once more after the first phase that
   builds the design, before later phases copy its shape.
-- **One builder per area** of the code, each with that area's rules from the
-  repo's own instruction files. It never edits outside its area.
-- **Checkpoints** after each phase, before every commit and before every push.
+- **One builder per area** of the code, for the whole run, each with that
+  area's rules from the repo's own instruction files. The builder that made a
+  mechanism is the one that extends it. It never edits outside its area.
+- **Checkpoints** after each phase, which is also that phase's commit, and
+  before the push.
 - **A reviewer** checks the diff against the repo's review rubric before the PR
   opens, and **QA** checks each acceptance criterion in the running app.
 - **Two watchers** follow CI and the code-review bot after the push. Every

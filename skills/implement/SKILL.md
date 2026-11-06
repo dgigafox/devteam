@@ -218,7 +218,10 @@ its checks).
    not re-run ([Reusing a verified command](#reusing-a-verified-command)). Gates never need
    a yes: run them, and ask only when one fails.
 7. **One builder at a time.** They share a worktree and its build output.
-   Reviewers and watchers are read-only and run in parallel.
+   Reviewers and watchers are read-only and run in parallel. A builder lives
+   for its area for the whole run, not for one phase: a later phase in the
+   same area resumes it (Step 4). Fresh only when the agent is gone or it
+   reports its context is tight.
 8. **Every finding reaches the user before any fix.** Never blame this diff for
    a failure it cannot reach; pre-existing is a valid verdict.
 9. **Ask, never assume.** Every question is a call to the `AskUserQuestion` tool.
@@ -424,13 +427,25 @@ For each phase:
 
 1. Note `git diff --name-only`, so you can tell what this phase touched. With a
    ticket set, `start` the phase's child if it has not started (Step 2).
-2. Dispatch the phase's agent with: the worktree path, the area name and its
-   Paths, the area's Instructions file pasted **verbatim** (or
-   `Instructions: none` when the area has no file), its Fast verify and the
-   phase's verify command, the numbered tasks, the ledger's `## Design` and
-   `## Decisions` verbatim, and the `contract` and `handoff` lines earlier
-   phases returned, verbatim. **Nothing else.** Builders do not run the full
-   gates.
+2. **The first phase in an area** dispatches a fresh agent with: the worktree
+   path, the area name and its Paths, the area's Instructions file pasted
+   **verbatim** (or `Instructions: none` when the area has no file), its Fast
+   verify and the phase's verify command, the numbered tasks, the ledger's
+   `## Design` and `## Decisions` verbatim, and the `contract` and `handoff`
+   lines earlier phases returned, verbatim. **Nothing else.** Builders do not
+   run the full gates.
+
+   **A later phase in the same area** resumes that builder with `SendMessage`:
+   the phase's numbered tasks and verify command, the `contract` and `handoff`
+   lines of phases in other areas since its last phase, and one line saying
+   the design is unchanged, or the changed `## Design` rows. It still holds
+   the code it wrote, so it is the one asked to extend it, and the one most
+   likely to fold rather than branch. A stranger to the previous phase copies
+   its pattern and adds a case; that is how a mechanism nobody approved grows.
+   Start a fresh builder only when the agent is gone after a restart or its
+   last result said `context: tight`; then give it the full brief plus the
+   previous builder's `handoff`, which describes the design as built, never
+   "reuse the pattern".
 3. Check the claim: every path inside the area's Paths, every expected path
    present, and the real diff matching `files_changed`.
 4. Tick the boxes with an inline note, and bump `**State:**`. Record each
@@ -450,22 +465,26 @@ above. `devteam:docs` returns its own shape.
 a table of `files_changed` (**file** · **change** · **lines** from
 `git diff --stat`), then the verify result (and why, if `degraded`),
 `tests_added`, `contract`/`handoff` and `user_notes`. Call `AskUserQuestion`:
-**next phase** · **fix this phase** · **replan the rest** · **stop here**.
+**commit and next phase** · **fix this phase** · **replan the rest** · **stop
+here**. On **commit and next phase**, commit the phase first
+([A phase is a commit](#a-phase-is-a-commit)).
 
 **Fix this phase** → send the user's words, verbatim, to the same builder with
 `SendMessage`, so it keeps its context. After a restart that builder is gone:
 dispatch a fresh one with the same brief plus the phase's ticked boxes and notes
 from the ledger.
 
-**Run-all pace:** keep going, adding a row per phase to one table: **phase** ·
-**agent** · **status** · **files** · **verify**.
+**Run-all pace:** keep going, committing each phase that passes
+([A phase is a commit](#a-phase-is-a-commit)) and adding a row per phase to one
+table: **phase** · **agent** · **status** · **files** · **verify** ·
+**commit**. Gate 1's **run them all** was the yes for those commits.
 
 These stop the build in either pace:
 
 - **the first phase that builds a record or mechanism from `## Design`** →
   show the design tables beside that phase's `files_changed` and `contract`,
-  and call `AskUserQuestion`: **the shape holds, next phase** · **fix this
-  phase** · **replan the rest** · **stop here**. Every later phase adds to this
+  and call `AskUserQuestion`: **the shape holds: commit and next phase** ·
+  **fix this phase** · **replan the rest** · **stop here**. Every later phase adds to this
   shape, so a change here is one phase's work and a change at review is every
   phase's. Once per run; with `design: none` there is no such stop.
 - `status: blocked` → name who it needs. Call `AskUserQuestion`: **dispatch
@@ -478,7 +497,33 @@ These stop the build in either pace:
   on disk. Call `AskUserQuestion`: **keep it** · **send it to its owner** ·
   **stop here**.
 
-Never roll back. `git diff` is the user's undo.
+Never roll back. `git diff` and the phase commits are the user's undo.
+
+### A phase is a commit
+
+A phase is committed when the user moves on from it, not at the end of the
+run. The builder's Fast verify has just passed on exactly this tree, so
+`devteam:gates` in `commit` mode reuses it
+([Reusing a verified command](#reusing-a-verified-command)) and runs only the
+other gates `## Verification gates` names for the phase's paths. Committing at
+the end instead, split by layer, builds trees nobody verified, and each one
+costs a full gate run: that is where most of a run's gate time went.
+
+1. `devteam:gates` in `commit` mode. A `fail` → the gate table (**command** ·
+   **exit** · **stopped at** · **log**) and `AskUserQuestion`: **fix it** (the
+   builder, then gates again) · **stop here**.
+2. The `commit` skill, one commit for the phase: `type(scope): subject` from
+   the phase's title and tasks, scoped to the ticket key or the no-ticket
+   scope from `## Delivery`. The user approved the phase; that is the yes for
+   its commit, so no second question.
+3. Record the sha, subject and phase id under `## Commits`.
+
+One phase, one commit. Only the phase's end tree has been verified, so a phase
+that wants two commits is two phases: say so at **replan the rest**, never
+split the commit. A fix round at Step 5 or 6 is committed the same way, one
+commit per area per round, type `fix`; its builder's verify is what the gate
+reuses. Nothing is amended or squashed here; a person does that at merge if
+the repo wants it.
 
 **After the last phase**, run the two closing jobs:
 
@@ -548,8 +593,10 @@ criterion** · **change it**, the way Gate 1 asks a decision. A change becomes
 a `D` line marked `(user)`, and QA holds the work to the new wording. Never
 reword a criterion in the ledger because a fix needed it to.
 
-Owners fix the picked findings. Paste [review-findings.md](review-findings.md)
-verbatim into each brief that hands over a finding. A finding of kind `design`
+The builder that built each area in this run fixes its picked findings,
+resumed with `SendMessage`; a fresh one only when it is gone. Paste
+[review-findings.md](review-findings.md) verbatim into each brief that hands
+over a finding. A finding of kind `design`
 is handed over as a change to the mechanism: name the design row it breaks,
 and say that a patch which keeps the mechanism and adds a branch comes back
 `changed`. Give that builder the ledger's `## Design` verbatim. A builder may
@@ -564,7 +611,8 @@ finding that is `changed` or `unresolved` gets one more round: the builder
 again, then the reviewer scoped to that finding. Anything else, or anything
 still open after that → show the user and call `AskUserQuestion`: **go to QA**
 · **I'll fix it myself** · **stop here**. One review round only, plus the one
-design round.
+design round. Once the re-review settles, commit the round's fixes, one commit
+per area ([A phase is a commit](#a-phase-is-a-commit)), before Step 6.
 
 ## Step 6 — QA
 
@@ -587,8 +635,9 @@ with owners, the `unverifiable` ones with why, and `env_blocked`. Call
 
 On **fix it**: owner fixes → reviewer reviews that fix → QA re-checks only the
 unmet criteria plus the gates (`pass: re-check`). Then show the result and call
-`AskUserQuestion`, whatever the outcome: **commit** (only if all met and clean)
-· **I'll fix it myself** · **accept as is** · **abort**.
+`AskUserQuestion`, whatever the outcome: **commit the fixes** (only if all met
+and clean; one commit per area, as at Step 5) · **I'll fix it myself** ·
+**accept as is** · **abort**.
 
 An `unverifiable` criterion is never met. It stays a visible gap, and only the
 user accepts it.
@@ -655,21 +704,18 @@ Caveats:
 - A skip assumes the same files give the same result. A flaky test or a service
   that was up then and down now is not re-checked.
 
-## Step 7 — Commit
+## Step 7 — Push checkpoint
 
-1. `devteam:gates` in `commit` mode, reusing passes where it can. Any `fail` → show a
-   table (**command** · **exit** · **stopped at** · **log**) and call
-   `AskUserQuestion`: **fix it** (owner, then reviewer, then gates again) ·
-   **stop**.
-2. Use the `commit` skill. Work out the split from the ledger's phases and
-   `git diff --stat HEAD`: one commit per coherent change, scoped to the ticket
-   key, or the repo's no-ticket scope from `## Delivery` without a ticket. Show
-   the proposed commits as a table (**#** · **subject** · **files**) and call
-   `AskUserQuestion`. Commit only after a yes.
-3. Record each sha and subject under `## Commits`.
-4. Show the commits made (**sha** · **subject**). Call `AskUserQuestion`: **push
-   and open the PR** (**push to the PR** when there is one) · **stop here**.
-   Pushing is outward-facing; never push without this yes.
+Every phase and every fix round is already committed. Here:
+
+1. `git status --porcelain` from the worktree. Anything uncommitted besides
+   the ledger is a fix that skipped its commit: commit it as at
+   [A phase is a commit](#a-phase-is-a-commit), gates first. Never leave a
+   change behind, and never fold it into another commit.
+2. Show the commits made (**sha** · **subject** · **phase or round**) from
+   `## Commits`. Call `AskUserQuestion`: **push and open the PR** (**push to
+   the PR** when there is one) · **stop here**. Pushing is outward-facing;
+   never push without this yes.
 
 ## Step 8 — Pull request and review
 
@@ -796,14 +842,14 @@ the user asks for — takes this path:
 2. The owner fixes it. A finding from the reviewer, OCR or a person comes with
    [review-findings.md](review-findings.md) pasted verbatim into the brief.
 3. The reviewer checks the fix diff. Its findings follow Step 5's rules.
-4. `devteam:gates` in `commit` mode. No question; a `fail` is a
-   checkpoint (Step 7.1).
-5. **Checkpoint:** the commit split (Step 7.2). You commit after a yes.
-6. **Checkpoint:** the push (Step 7.4). On a yes, gates in `push` mode, then you
+4. Commit the fix as at [A phase is a commit](#a-phase-is-a-commit): gates
+   first, one commit per area, type `fix`. A `fail` is a checkpoint. The user
+   picked the finding, which is the yes for its commit.
+5. **Checkpoint:** the push (Step 7.2). On a yes, gates in `push` mode, then you
    push.
-7. The [risk reset](#resetting-the-risk), with `## Risk`.
-8. `submit` the ticket, if there is one (Step 8). State → `pr-open`.
-9. Steps 9–11 again, then Step 12.
+6. The [risk reset](#resetting-the-risk), with `## Risk`.
+7. `submit` the ticket, if there is one (Step 8). State → `pr-open`.
+8. Steps 9–11 again, then Step 12.
 
 ## Step 12 — Classify the risk
 

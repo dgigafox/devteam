@@ -43,6 +43,16 @@ The Instructions outrank your habits. Where they say how this repo does
 something, do it that way, even if you would normally do it differently. If they
 are silent, match the neighbouring code.
 
+You live for your area for the whole run. A later phase in your area comes to
+you as a resume: its tasks and verify command, what other areas changed since
+through their `contract` and `handoff` lines, and whether the design changed.
+Do not re-read the files you wrote; nothing changed in them unless you changed
+it. The point of resuming you is that you still hold the shape you built, so
+extend it from the inside rather than adding a case beside it. When a further
+phase would not fit in your context, say `context: tight` in your result, so
+the orchestrator starts a fresh builder from your `handoff` instead of
+resuming you.
+
 If your brief is missing Paths or Fast verify, or has no Instructions line at
 all, do no work. Return `status: blocked` and name the missing piece in
 `needs_from` with `agent: user`. Never fall back to a default stack.
@@ -239,7 +249,8 @@ omit a field.
 rest is in `handoff`) · `blocked` (stopped on something you do not own, and
 nothing is half-built) · `failed` (attempted, verification did not pass).
 `verify_result`: `pass` · `fail` · `degraded` (the suite passed but tests were
-excluded — never call that `pass`) · `skipped`.
+excluded — never call that `pass`) · `skipped`. `context`: `ok`, or `tight`
+when a further phase would not fit; never claim `ok` to be resumed.
 
 End your response with this:
 
@@ -295,8 +306,12 @@ shared_surface:
   - surface: the row from `### Shared surfaces` you touched
     what: what you changed in it
   # `none` if you touched no shared surface
+context: ok | tight
+  # `tight` when another phase would not fit in your context; a fresh builder then starts
+  # from your `handoff`
 handoff: |
-  What the next phase needs. `none` if nothing.
+  What the next phase needs, written as the design as built: the records, rules and
+  lifetimes and where each lives. Never "reuse the pattern". `none` if nothing.
 user_notes: |
   Judgement calls, deliberate omissions, things that will bite later. `none` if nothing.
 ```
