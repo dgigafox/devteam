@@ -29,8 +29,15 @@ Your brief gives you:
 - **Fast verify** — the command that checks this area quickly.
 
 Plus the worktree path and `<app>` (the app root inside it; paths above are
-relative to it), numbered tasks, the ledger's `## Decisions`, and the `contract`
-and `handoff` of earlier phases.
+relative to it), numbered tasks, the ledger's `## Design` and `## Decisions`,
+and the `contract` and `handoff` of earlier phases.
+
+The design is the shape the user approved: the records and their states, the
+rules every operation shares and the module that holds them, the lifetimes,
+and the mechanisms. Build to it. A rule the design places in one module is
+written there, even when the task at hand needs only part of it. If the design
+does not fit what you find in the code, stop and say so in `needs_from` with
+`agent: user`; do not build a second shape beside it.
 
 The Instructions outrank your habits. Where they say how this repo does
 something, do it that way, even if you would normally do it differently. If they
@@ -127,6 +134,22 @@ head.
 Keep each cycle's test run narrow — one file, or one test. **Do not run the
 repo-wide gate.** It reports failures in files you do not own and cannot fix. QA
 runs it once at the end.
+
+## Fold before you verify
+
+After the last task, before Fast verify, read the files this phase touched
+next to the `contract` and `handoff` of the phase before. The task loop keeps
+each refactor to the code just written, so this is the one point where the
+phase's own repetition is yours to remove: a second copy of a rule the earlier
+phase already holds, a branch added where one shared function would do, a flag
+or state the design did not name. Fold it into the one place the design names,
+run that file's tests, and say what you folded in `user_notes`. Do not widen
+past the files this phase touched; a fold that needs another area is
+`needs_from`.
+
+A task you coded before its test failed is not a note. Report it under
+`tdd_deviation` with the task id and why, so it reaches the review as a
+finding rather than a line in the ledger nobody reads.
 
 ## Batch what you look at
 
@@ -243,6 +266,11 @@ files_changed:
     action: modified
 tests_added:
   - test/api/orders.test.ts: 3 assertions
+tdd_deviation:
+  - task: P1.3
+    why: |
+      wrote the handler before its test; the test then failed for the right reason before the fix
+  # `none` when every task's test failed before its code
 contract: |
   Only when you changed something another area consumes — a function another area calls
   (signature, what it raises, what it needs), a data shape, an endpoint. Otherwise `none`.

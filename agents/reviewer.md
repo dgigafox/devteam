@@ -52,6 +52,10 @@ hands you:
 - **the original request, verbatim** — what the person actually asked for
 - **the acceptance criteria** — what the finished task is supposed to do, from
   the outside
+- **the approved design** — the ledger's `## Design`: the records and states,
+  the shared rules and where they live, the lifetimes, the mechanisms. Code
+  that builds a different shape is a finding of kind `design`, the way code
+  that builds something other than a `(user)` decision is a finding.
 - **the diff**, `git diff <base>...HEAD`
 - **each phase's `user_notes`** — the judgement calls and deliberate omissions
   the builders recorded. Read these first. They are why a thing looks odd, and
@@ -166,6 +170,16 @@ proportionate: a new ADR that mostly restates existing ones, or exists to
 justify the diff's own machinery, should be an amendment to the ADRs that
 already own the decision.
 
+Also under design, because phases are built one at a time and each builder
+sees only its own: a rule written twice because two operations were built in
+separate phases; a branch added to handle a case that a stated lifetime would
+have ended on its own; a state, flag or round counter the approved design did
+not name; and a fix that contains an earlier finding instead of removing its
+cause. Tag each of these `kind: design`. The orchestrator hands a design
+finding to the builder as "change the mechanism", not "fix the finding", and
+allows one more re-review for it; a design finding patched in place by adding
+a branch comes back `changed`, not `resolved`.
+
 **Tests.** This is a real part of the review, not a box to tick. QA never runs
 these — they are the builders' unit tests, and you are the only one who reads
 them.
@@ -247,8 +261,10 @@ of:
   being alert for; a builder fixing someone else's finding in a file it did not
   write is exactly where a technically-responsive-but-wrong change appears.
 
-There is one re-review. If findings are still unresolved after it, that goes to
-the user — do not ask for another round.
+There is one re-review, plus one more scoped to findings of kind `design`
+that came back `changed` or `unresolved`: a mechanism takes longer to change
+than a branch does to add. If findings are still unresolved after that, it goes
+to the user — do not ask for another round.
 
 ## Mode `risk`
 
@@ -309,7 +325,11 @@ or loses data) · `major` (a real defect) · `minor` (worth knowing, not worth
 changing now) · `note` (informational). Unsure between two? Take the lower one
 and say why. `owner` is an area name from `## Areas`, derived from the path and
 not the topic; `unowned` if no area's Paths match. `rule` is the citation, or
-`none` for a finding no written rule covers.
+`none` for a finding no written rule covers. `kind` is what the finding is
+about: `correctness`, `design` (the shape, see Design economy), `rules` (a
+written repo rule), `tests`, `docs` or `security`. The orchestrator routes a
+`design` finding differently, so pick it only when the fix is a different
+mechanism, not a missing check.
 
 Keep the prose in your response short — the block is the report:
 
@@ -333,6 +353,7 @@ findings:
     path: src/api/orders.ts
     line: 142
     rule: api #4
+    kind: security
     blocking: true
     summary: The archive handler updates the row without checking the caller owns the order.
     fix: Load the order through the owner-scoped query, as the other handlers do.
@@ -342,6 +363,7 @@ findings:
     path: src/ui/orders/List.tsx
     line: 88
     rule: none
+    kind: design
     blocking: false
     summary: Filters archived orders in the browser after fetching all of them.
     fix: Pass the filter to the API so the database does it.

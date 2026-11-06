@@ -1,6 +1,6 @@
 {
   "name": "devteam",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Take one task to a reviewed pull request with a team of area-owned agents — planner, builders, reviewer, QA, CI and code-review watchers — and the user approving the plan, each phase, the commits and the push. Verbs: /devteam:setup prepares a repository, /devteam:implement runs a task.",
   "author": {
     "name": "Darren Gegantino"

@@ -52,6 +52,8 @@ No `## Skills` section → every job is built in.
 | `pr`            | `gh pr create` with a title in the same form, and a body from the run, filling the repo's pull request template (`.github/PULL_REQUEST_TEMPLATE.md`) if it has one |
 | `readiness-fix` | Nothing: the not-ready stop lists the gaps only                                                                                                           |
 | `after-merge`   | Nothing: the summary says the ticket is closed by hand                                                                                                    |
+| `glossary`      | Nothing now: the docs audit at Step 5 reports a term the glossary lacks, and the `docs` agent adds it when the repo has a `docs` area |
+| `acceptance-tests` | Nothing: the planner's acceptance-test line stands, and the reviewer checks it against `## Acceptance tests` |
 
 The table's shape:
 
@@ -64,6 +66,8 @@ The table's shape:
 | tickets | `ticket-lifecycle` | Events: handoff → `handoff-qa`, parent-start → `story-start` |
 | commit | `conventional-commit` | |
 | pr | `pr` | Opens the PR, then runs the ticket's submit |
+| glossary | `glossary` | After the last phase, with every new term |
+| acceptance-tests | `e2e-testing` | After the last phase, when a browser-reachable route, page or component changed |
 ```
 
 **Ticket events** are this skill's words: `ready`, `start`, `resume`,
@@ -352,7 +356,7 @@ Dispatch `devteam:planner` with:
 Without a ticket, the planner writes the acceptance criteria from the
 instruction. You show them at Gate 1 like any other.
 
-Write the ledger ([ledger.md](ledger.md)) from its `phases`,
+Write the ledger ([ledger.md](ledger.md)) from its `design`, `phases`,
 `acceptance_criteria` and `assumptions`.
 
 ### Gate 1, part 1 — Decisions
@@ -371,27 +375,35 @@ phases and acceptance. Ask any new `decisions_needed` too.
 
 Show these tables. Do not paste the plan.
 
+- **Design** — first, because it is what the phases add up to and the cheapest
+  place to change the shape. Four small tables from the planner's `design`:
+  record · states · operations it covers; rule · where it lives; what waits ·
+  when it ends; mechanism · the alternative rejected. With `design: none`, one
+  line saying so.
 - **Phases** — phase · agent · what · tasks · expected files
 - **Acceptance criteria** — id · criterion. These matter most: QA holds the
   finished work to them.
 - **Decisions and assumptions** — id · decision · by (`user` or `planner`). The
   decisions are a reminder, not asked again. The assumptions go in full.
-- **New mechanisms** — what · where · the alternative the planner rejected. Only
-  if any.
 
 Then one line for the review triggers.
 
 Call `AskUserQuestion` with these options:
 
 - **approve, stop after each phase** — the default when phases depend on each
-  other or one is risky
-- **approve, run them all** — build straight through and stop once at the end
-- **adjust** — amend from the user's words; a changed decision or overruled
-  assumption becomes a `D` line and the planner runs again
+  other, one is risky, or the planner's `risk` is `high`
+- **approve, run them all** — build straight through and stop once at the end,
+  plus the one design stop below
+- **adjust** — amend from the user's words; a changed decision, an overruled
+  assumption or a change to the design becomes a `D` line and the planner runs
+  again
 - **abort** — delete the ledger, and say the worktree, ticket and PR stay as
   they are
 
 Record the pace in the ledger. Never change it mid-run without asking.
+Whatever the pace, the build stops once after the first phase that builds a
+record or mechanism from the design (Step 4): later phases reuse that shape,
+so it is checked before it is copied.
 
 ## Step 4 — Build
 
@@ -415,14 +427,18 @@ For each phase:
 2. Dispatch the phase's agent with: the worktree path, the area name and its
    Paths, the area's Instructions file pasted **verbatim** (or
    `Instructions: none` when the area has no file), its Fast verify and the
-   phase's verify command, the numbered tasks, the ledger's `## Decisions`
-   verbatim, and the `contract` and `handoff` lines earlier phases returned,
-   verbatim. **Nothing else.** Builders do not run the full gates.
+   phase's verify command, the numbered tasks, the ledger's `## Design` and
+   `## Decisions` verbatim, and the `contract` and `handoff` lines earlier
+   phases returned, verbatim. **Nothing else.** Builders do not run the full
+   gates.
 3. Check the claim: every path inside the area's Paths, every expected path
    present, and the real diff matching `files_changed`.
 4. Tick the boxes with an inline note, and bump `**State:**`. Record each
    `pass` in the builder's `verified` under `## Verified`. Do the same after
-   every fix a builder makes.
+   every fix a builder makes. A `tdd_deviation` other than `none` goes under
+   `## Findings` now, as `minor`, kind `tests`, owner the phase's area, and is
+   shown at Step 5 with the reviewer's findings: a test written after its code
+   proves less, and the user decides whether that matters here.
 
 `devteam:builder` returns: `status`, `area`, `verify`,
 `verify_result`, `verified`, `files_changed`, `tests_added`, `contract`, `needs_from`,
@@ -446,6 +462,12 @@ from the ledger.
 
 These stop the build in either pace:
 
+- **the first phase that builds a record or mechanism from `## Design`** →
+  show the design tables beside that phase's `files_changed` and `contract`,
+  and call `AskUserQuestion`: **the shape holds, next phase** · **fix this
+  phase** · **replan the rest** · **stop here**. Every later phase adds to this
+  shape, so a change here is one phase's work and a change at review is every
+  phase's. Once per run; with `design: none` there is no such stop.
 - `status: blocked` → name who it needs. Call `AskUserQuestion`: **dispatch
   <owner>** · **stop here**. On yes, dispatch that owner for the one change,
   then the blocked agent again.
@@ -458,9 +480,27 @@ These stop the build in either pace:
 
 Never roll back. `git diff` is the user's undo.
 
-**After the last phase**, show `git diff --stat $BASE` and every `contract`
-line. Call `AskUserQuestion`: **review + QA** · **QA only** · **fix first** ·
-**stop here**.
+**After the last phase**, run the two closing jobs:
+
+- `glossary` — with a skill in `## Skills`, invoke it from the worktree with
+  every term the design or a builder's `contract` introduced; a new record is
+  a term unless the glossary itself says such internals are excluded. Built
+  in: nothing now; the docs audit at Step 5 reports a term the glossary lacks,
+  and the `docs` agent adds it when the repo has a `docs` area. The planner's
+  assumptions never decide this.
+- `acceptance-tests` — with a skill, invoke it when a phase changed a
+  browser-reachable route, page or component, with those paths and the
+  planner's acceptance-test line as its input, not its answer. Built in:
+  nothing; the line stands and the reviewer checks it against
+  `## Acceptance tests`.
+
+A skill's edits are a phase like any other: note `git diff --name-only` before
+and after, show the files it changed, and record a command under `## Verified`
+only when the skill reports it ran in full.
+
+Then show `git diff --stat $BASE` and every `contract` line. Call
+`AskUserQuestion`: **review + QA** · **QA only** · **fix first** · **stop
+here**.
 
 ## Step 5 — Review
 
@@ -469,9 +509,11 @@ mode) in one message. Give the reviewer what a human reviewer would get:
 
 - the instruction, the ticket and comments, verbatim, and the acceptance
   criteria
-- the ledger's `## Decisions`, verbatim. Code that builds something other than a
-  `(user)` decision is a finding, and so is a business rule found in neither the
-  ticket nor the decisions.
+- the ledger's `## Design` and `## Decisions`, verbatim. Code that builds
+  something other than the approved design or a `(user)` decision is a finding,
+  and so is a business rule found in neither the ticket nor the decisions.
+- the `## Findings` rows the build already added (TDD deviations), so the
+  reviewer reads those tests closely rather than filing them again
 - `git diff $BASE`
 - every phase's `user_notes`, `tests_added` and `contract`
 - which of the repo's `### Review triggers` the diff hits, and the planner's
@@ -486,9 +528,9 @@ More than ten findings → point the reviewer at
 Print the findings table first, whatever the outcome, one row per finding of
 every severity:
 
-| id  | severity | where                  | finding                                      | owner |
-| --- | -------- | ---------------------- | -------------------------------------------- | ----- |
-| F1  | major    | `src/ui/upload.ts:142` | A failed upload leaves the dialog stuck open | ui    |
+| id  | severity | kind        | where                  | finding                                      | owner |
+| --- | -------- | ----------- | ---------------------- | -------------------------------------------- | ----- |
+| F1  | major    | correctness | `src/ui/upload.ts:142` | A failed upload leaves the dialog stuck open | ui    |
 
 **Nothing actionable** — no `blocker`, and no `major` in this run's diff → say
 so under the table and go to Step 6.
@@ -498,17 +540,31 @@ so under the table and go to Step 6.
 pick** → ask again with `multiSelect`, one option per finding, four per
 question.
 
+Before any fix, look for a finding that argues with an acceptance criterion
+rather than with the code (the fix would change what AC4 says, not how the
+code meets it). That is a decision, not a fix. Show the criterion as it stands
+and as the finding would have it, and call `AskUserQuestion`: **keep the
+criterion** · **change it**, the way Gate 1 asks a decision. A change becomes
+a `D` line marked `(user)`, and QA holds the work to the new wording. Never
+reword a criterion in the ledger because a fix needed it to.
+
 Owners fix the picked findings. Paste [review-findings.md](review-findings.md)
-verbatim into each brief that hands over a finding. A builder may **decline**
-one with a reason: that is a disagreement, not a failed fix. Show both sides,
-then call `AskUserQuestion` per decline: **accept the decline** · **fix it
-anyway**. Never settle it yourself.
+verbatim into each brief that hands over a finding. A finding of kind `design`
+is handed over as a change to the mechanism: name the design row it breaks,
+and say that a patch which keeps the mechanism and adds a branch comes back
+`changed`. Give that builder the ledger's `## Design` verbatim. A builder may
+**decline** one with a reason: that is a disagreement, not a failed fix. Show
+both sides, then call `AskUserQuestion` per decline: **accept the decline** ·
+**fix it anyway**. Never settle it yourself.
 
 Then dispatch the reviewer **once** more, scoped to its findings plus the fix
 diff. Show the table again with a status column: `resolved`, `unresolved`,
-`declined`, `changed`. All `resolved` or `declined` → Step 6. Anything else →
-show the user and call `AskUserQuestion`: **go to QA** · **I'll fix it myself**
-· **stop here**. One review round only.
+`declined`, `changed`. All `resolved` or `declined` → Step 6. A `design`
+finding that is `changed` or `unresolved` gets one more round: the builder
+again, then the reviewer scoped to that finding. Anything else, or anything
+still open after that → show the user and call `AskUserQuestion`: **go to QA**
+· **I'll fix it myself** · **stop here**. One review round only, plus the one
+design round.
 
 ## Step 6 — QA
 

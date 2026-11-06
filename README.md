@@ -16,8 +16,12 @@ A single agent that builds a whole task copies whatever patterns the code
 already has, good or bad, and runs to the end before you see anything. devteam
 splits the work and keeps you in it:
 
-- **A planner** lists every decision it made that the task didn't cover. You
-  approve the plan before any code is written.
+- **A planner** states the design first: the records and their states, the
+  rules every operation shares and where they live, the lifetimes, and each new
+  mechanism with the alternative it rejected. It lists every decision it made
+  that the task didn't cover. You approve the design and the plan before any
+  code is written, and the build stops once more after the first phase that
+  builds the design, before later phases copy its shape.
 - **One builder per area** of the code, each with that area's rules from the
   repo's own instruction files. It never edits outside its area.
 - **Checkpoints** after each phase, before every commit and before every push.
@@ -59,6 +63,8 @@ name. A job with no row is done the built-in way:
 | `pr`            | `gh pr create`, filling the repo's PR template    |
 | `readiness-fix` | Lists a ticket's gaps, with no skill to suggest   |
 | `after-merge`   | Leaves closing the ticket to a person             |
+| `glossary`      | Leaves a missing term to the docs audit           |
+| `acceptance-tests` | Leaves the planner's acceptance-test line to the reviewer |
 
 With no `## Tickets` section, the repository uses no tickets and every ticket
 step is skipped.

@@ -82,6 +82,14 @@ phase nobody can verify.
    task names the test that goes first: what behaviour it checks and where it
    lives. A task with no behavioural test surface (config, docs, a pure rename)
    says so.
+9. **A shared mechanism is built once, before the operations that use it.**
+   When two or more operations in the task share a record, a state machine or
+   a set of rules (an idempotency key, a time window, an error classification,
+   a lock order), the first phase builds that shared part for all of them, with
+   its tests, and each later phase adds one operation to it. Never let a later
+   phase inherit the mechanism through a handoff line that says "reuse the
+   pattern": the pattern is then copied, not shared, and the rules end up
+   written once per operation.
 
 ## A ticket set
 
@@ -113,6 +121,30 @@ repo's rules say the suite reads it.
 If the task looks like it wants one and you decide against it, say so in one
 line under `assumptions` — the absence should be a decision the user can see,
 not an oversight.
+
+## The design
+
+Before the phases, write the design of the whole task in the `design` block.
+The user approves it before the phase list, and every builder is held to it.
+A phase list hides a design: the orchestrator and the user see tasks, not the
+shape the tasks add up to, and a wrong shape is cheapest to change before the
+first phase builds it.
+
+- **Records and states.** Each stored record the task adds or changes, its
+  states and what moves it between them, and which operations of the task use
+  it. An operation left off a record is a decision; say so and why.
+- **Shared rules.** Each rule more than one operation follows (a key format, a
+  retry window, an error classification, a lock order), and the one module
+  that holds it.
+- **Lifetimes.** Anything that can wait on an outside system has a stated
+  lifetime, and what happens when it passes. A pending state with no end is a
+  finding before it is built.
+- **Mechanisms.** Each new module, layer or loop, with the smaller alternative
+  you rejected and why. A mechanism whose only job is to contain a side effect
+  of another one is the signal to pick a different one.
+
+Keep it short: one row per item, not prose. Write `design: none` only for a
+task that adds no record, rule, lifetime or mechanism, such as a copy change.
 
 ## Acceptance criteria
 
@@ -257,9 +289,9 @@ carried, which one plan built a whole second router to contain, never existed to
 begin with.)
 
 **New infrastructure is a cost, not a deliverable.** A phase that adds a new
-module, layer, or routing mechanism must say so in `user_notes`, alongside the
-smaller alternative you rejected and why — that is a decision the user approves
-at Gate 1, not one you make silently.
+module, layer, or routing mechanism must appear under `design` → `mechanisms`,
+alongside the smaller alternative you rejected and why — that is a decision the
+user approves at Gate 1, not one you make silently or bury in `assumptions`.
 
 ## Result block
 
@@ -289,6 +321,22 @@ files_changed: none
 task: |
   One-sentence restatement of what you were asked to do, so a drifted plan is obvious.
 risk: low | medium | high
+design:
+  records:
+    - name: Billing.Command
+      states: prepared → open → succeeded | failed | expired
+      covers: checkout, change_product, cancel
+      note: cancel stays on the record, so every operation retries the same way
+  rules:
+    - rule: idempotency key, params hash, 23 h key window, error classes
+      where: Billing.Commands
+  lifetimes:
+    - what: a prepared Checkout
+      ends: 1 h after prepare; then its session is looked up and the record closed
+  mechanisms:
+    - what: two transactions, claim then send
+      rejected: one transaction — a crash rolls back the only record of the send
+  # `design: none` only for a task that adds no record, rule, lifetime or mechanism
 phases:
   - id: P1
     title: Add archived_at to orders and an archive endpoint
@@ -335,9 +383,10 @@ decisions_needed:
     recommended: A billing email field on the company, set by an admin
     affects: P1.2, P2, AC1
 assumptions:
-  - Technical choices you made and the alternative you rejected, anything you left out, and
-    any acceptance-test phase you decided against — one line each. Cite the ticket, decision
-    record or code that settled it, if one did.
+  - Technical choices outside `design` (naming, which module, which query, the test layout),
+    anything you left out, and any acceptance-test phase you decided against — one line each.
+    Cite the ticket, decision record or code that settled it, if one did. A record, rule,
+    lifetime or mechanism is never an assumption: it goes under `design`.
 missing_repo_info: none
 refusals: none
 handoff: |

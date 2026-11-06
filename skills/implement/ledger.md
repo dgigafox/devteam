@@ -38,6 +38,24 @@ and write into any plan directory they find. A flat file matches none of them.
 
 **Instruction:** <the user's words, verbatim, or none>
 
+## Design
+
+| Record | States | Covers |
+| --- | --- | --- |
+| Billing.Command | prepared → open → succeeded, failed, expired | checkout, change_product, cancel |
+
+| Rule | Where |
+| --- | --- |
+| idempotency key, params hash, 23 h key window, error classes | Billing.Commands |
+
+| Waits | Ends |
+| --- | --- |
+| a prepared Checkout | 1 h after prepare; then looked up and closed |
+
+| Mechanism | Rejected |
+| --- | --- |
+| two transactions, claim then send | one transaction: a crash rolls back the only record of the send |
+
 ## Tickets
 
 | # | Ticket | Blocked by | Status |
@@ -73,6 +91,10 @@ Acceptance: <one sentence>
 ## Risk
 ```
 
+- `## Design` is the planner's `design` block as tables, verbatim after the
+  user approves it at Gate 1. A design change later in the run is a `D` line
+  and an edit here, never a silent drift. With `design: none`, the section
+  holds that one line.
 - `## Tickets` and the ticket in a phase heading appear only for a ticket set.
   `**Ticket:**` then reads `PROJ-123 (parent of PROJ-124, PROJ-125)`.
 - `D` lines are the user's answers to the planner's `decisions_needed`. `A`

@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.4.0 — unreleased
+
+- The planner states the design before the phases: the records and their
+  states and which operations use them, the rules more than one operation
+  shares and the module that holds them, the lifetime of anything that waits
+  on an outside system, and each new mechanism with the alternative rejected.
+  Gate 1 shows it first, the ledger keeps it under `## Design`, every builder
+  and the reviewer get it verbatim, and the build stops once after the first
+  phase that builds it. Why: a run built one operation per phase, each phase
+  inherited the last one's mechanism through a handoff line, and the shared
+  rules ended up written once per operation with a restart loop nobody had
+  approved.
+- A shared mechanism is one phase, built before the operations that use it
+  (planner rule 9). A handoff may no longer say "reuse the pattern".
+- Builders fold before they verify: after the last task, a phase's own
+  repetition against the previous phase's contract is removed, inside the
+  phase's files. A task coded before its test is reported as `tdd_deviation`
+  and becomes a `minor` finding, not a ledger note.
+- Findings carry a `kind`. A `design` finding is handed to the builder as
+  "change the mechanism", gets one extra re-review round, and comes back
+  `changed` when it was patched with another branch.
+- A finding that argues with an acceptance criterion is a decision: the old
+  and new wording are shown and asked, as at Gate 1, before any fix.
+- Two closing jobs after the last phase, named in `## Skills`: `glossary`
+  (a new record is a term; the planner's assumptions no longer decide this)
+  and `acceptance-tests` (the planner's line is the input, not the answer).
+  Without a row, the docs audit and the reviewer keep their checks.
+- Per-phase pace is the recommended answer when the planner's risk is `high`.
+
 ## 0.3.0 — 2026-11-06
 
 - Skills are set by the repo, not looked up by name. A new `## Skills` table
